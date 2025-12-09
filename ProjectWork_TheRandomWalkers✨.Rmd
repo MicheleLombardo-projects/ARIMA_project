@@ -1,0 +1,835 @@
+---
+title: "Analysis of the short-squeeze of GameStop stock"
+author: "Davide Franceschi, Michele Lombardo, Antonio D'Arienzo"
+date: "2025-12-07"
+output:
+  html_document: default
+  pdf_document: default
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### RANDOM WALKER'S PROJECT ✨
+
+Define which example we are getting:
+
+```{r}
+set.seed(12022002) #davide franceschi
+exercise=sample(1:3,1)
+```
+
+### Exercise 1
+
+Let's assume the following distributions:
+
+$$
+X_t \sim WN(0, \sigma^2) \quad \quad Y \sim N(\mu, \sigma_Y^2)
+$$
+
+Let's define the new process $Z_t$:
+
+$$
+Z_t = X_t + Y
+$$
+
+## Point A
+
+**Mean** $E(Z_t)$ **Calculus**
+
+The mean of $Z_t$ is given by the linearity of the expected value
+operator:
+
+$$
+E(Z_t) = E(X_t) + E(Y) = 0 + \mu = \mu
+$$
+
+**Variance** $Var(Z_t)$ **Calculus**
+
+The variance of $Z_t$ (assuming that $X_t$ and $Y$ are independent) is:
+
+$$
+Var(Z_t) = Var(X_t) + Var(Y) = \sigma^2 + \sigma_Y^2
+$$
+
+**Autocovariance function** $\gamma_h(t, t+h)$ **Calculus**
+
+The Autocovariance function is defined as:
+
+$$
+\gamma_h(t, t+h) = E[(Z_t - E(Z_t))(Z_{t+h} - E(Z_{t+h}))]
+$$
+
+Substituting $Z_t = X_t + Y$ and $E(Z_t) = \mu$, we obtain:
+
+$$
+= E[(X_t + Y - \mu)(X_{t+h} + Y - \mu)]
+$$
+
+Computing the product, we have:
+
+$$
+= E[X_t X_{t+h} + X_t Y - \mu X_t + Y X_{t+h} + Y^2 - \mu Y - \mu X_{t+h} - \mu Y + \mu^2]
+$$
+
+Applying the linearity of expected value and knowing that: \*
+$E(X_t) = 0$ (because $X_t \sim WN(0, \sigma^2)$) \* $E(Y) = \mu$
+(because $Y \sim N(\mu, \sigma_Y^2)$) \* $X_t$ e $Y$ are independent
+variables, therefore $E(X_t Y) = E(X_t) E(Y) = 0 \cdot \mu = 0$
+
+Let's divide the expression in more rows for a better clarification:
+
+$$
+= E[X_t X_{t+h}] + E[X_t Y] - \mu E[X_t] + E[Y X_{t+h}] + E[Y^2] - \mu E[Y] - \mu E[X_{t+h}] - \mu E[Y] + E[\mu^2]
+$$
+
+Substituting the values:
+
+$$
+= E[X_t X_{t+h}] + 0 - \mu (0) + 0 + E[Y^2] - \mu (\mu) - \mu (0) - \mu (\mu) + \mu^2
+$$ Even $E[X_t X_{t+h}]=0 \quad \forall h \neq 0$ From which, everything
+simplifies to:
+
+$$
+= E[Y^2] - 2\mu^2 + \mu^2
+$$
+
+**Calculus of** $E[Y^2]$
+
+*Term* $E[Y^2]$: The Variance of Y is $Var(Y) = E(Y^2) - [E(Y)]^2$, we
+can write: $$
+    E(Y^2) = Var(Y) + [E(Y)]^2 = \sigma_Y^2 + \mu^2
+    $$
+
+**Final result for** $\gamma_h$
+
+Substituting $E[Y^2]$ in the simplifies expression:
+
+$$
+\gamma_h =(\sigma_Y^2 + \mu^2) - 2\mu^2 + \mu^2
+$$
+
+$$
+\gamma_h = \sigma_Y^2
+$$
+
+## Point B
+
+**Calculus of the autocorrelation coefficient** $\rho_h$
+
+The autocorrelation coefficient is computed as: $$
+\rho_h = \frac{\gamma_h}{\gamma_0}
+$$
+
+Substituting values $h \neq 0$:
+
+$$
+\rho_h = \frac{\sigma_Y^2}{\sigma^2 + \sigma_Y^2}
+$$
+
+Dividing numerator and denominator for $\sigma_Y^2$:
+
+$$
+\rho_h = \frac{1}{\frac{\sigma^2}{\sigma_Y^2} + 1} = \frac{1}{1 + \frac{\sigma^2}{\sigma_Y^2}} > 0 \quad \forall h \neq 0
+$$
+
+**Conclusion:**
+
+The Autocorrelation coefficient $\rho_h$ is a non-vanishing positive
+constant for every lag $h \neq 0$. The process $Z_t$ satisfies the 3
+conditions (constant mean and variance, Autocovariance that only depends
+on the lag h), therefore we confirm that $Z_t=X_t+Y$ is Weakly
+Stationary. However the process is not ergodic because $\rho_h$ is
+always positive for every $h \neq 0$, i.e., the process has 'infinite'
+memory: the initial draw of $Y$ permanently affects the process level,
+preventing a single sample path from exploring the entire state space of
+the ensemble.
+
+## Point C
+
+```{r}
+set.seed(12022002)
+sigma2 = 1
+mu = 0
+theta = 0.9
+T = 100
+#X_t = WN(0,sigma2)
+X_t = rnorm(T, mean=mu,sd=sqrt(sigma2))
+Y = rnorm(1,mean=mu,sd=sqrt(sigma2))
+Z_t = X_t + Y
+Z_t = ts(data=Z_t)
+```
+
+plot of $Z_t$:
+
+```{r}
+ts.plot(Z_t) #c.1
+```
+
+Visually, the given time series appears as a typical stationary process.
+The absence of trends or variations in amplitude (volatility) strongly
+suggests that the statistical properties (mean and variance) are
+invariant with respect to time t.
+
+```{r}
+empirical_mean = mean(Z_t) #c.2
+mean(Z_t)
+theoretical_mean = mu
+theoretical_mean
+```
+
+The mean of $Z_t$ is $-0.3439143$ for the first sample of
+$Y = -0.3439143$ (consider that $X_t$ is a zero-mean $WN$).
+
+```{r}
+
+empirical_variance = var(Z_t)  #c.2
+var(Z_t)
+theoretical_variance = sigma2 + sigma2
+theoretical_variance
+```
+
+It should have been $2$ (as 'theoretical_variance' shows), however in
+the sample, $Y$ is no more a r.v., so the variance of $Z_t$ will only
+depend on the variance of $X_t$ ($WN$ with variance $= 1$).
+
+```{r}
+Z_t_matrix = matrix(data=NA, nrow=T,ncol=5) #nina check c.3
+Y_vector = rep(NA,5)
+for(i in 1:5){
+  X_t = rnorm(T,mean=mu,sd=1)
+  Y = rnorm(1,mean=mu,sd=1)
+  Y_vector[i] = Y
+  Z_t_matrix[,i] = X_t + Y
+}
+par(mfrow = c(2, 3))
+
+for (i in 1:5) {
+  plot(Z_t_matrix[, i],
+       type = 'l',
+       main = paste("Time Series Y=", round(Y_vector[i], digits= 4)),
+       xlab = "times",
+       ylab = "Z_t",
+       col = i)
+       abline(Y_vector[i],b=0)
+}
+
+par(mfrow = c(1, 1))
+```
+
+As displayed in the five realizations, while each $Z_t$ series behaves
+locally as a White Noise (fluctuating around a mean), they settle on
+different equilibrium levels determined by the realization of the random
+variable $Y$. This visually confirms the lack of ergodicity: the time
+average of a single path does not converge to the ensemble mean
+(theoretical mean), because it is "trapped" by the specific value of $Y$
+
+```{r}
+M = 10000 #monte carlo simulation to evaluate theoretical values c.4
+ts_matrix = matrix(data=NA,nrow = T,ncol = M)
+for(i in 1:M){
+  X_t = rnorm(T,mean=mu,sd=1)
+  Y = rnorm(1,mean=mu,sd=1)
+  ts_matrix[,i]= X_t + Y
+}
+
+mean_vector = apply(ts_matrix,1,mean) #for each t
+mean(mean_vector)
+var_vector = apply(ts_matrix,1,var)
+mean(var_vector)
+
+par(mfrow=c(1,2))
+plot(mean_vector, type = 'l')
+abline(h=mu, col='red')
+plot(var_vector, type = 'l')
+abline(h=2,col='red')
+par(mfrow=c(1,1))
+```
+
+The obtained values (mean of both the 'mean_vector' and 'var_vector')
+show a strict relation with the theoretical ones, being very close to
+them ($0$ and $2$).
+
+```{r}
+library(stats) #c.5
+acf(Z_t, lag.max = 50)
+theoretical_cor = 1/2
+```
+
+As we can see, the sample correlation function 'acf($Z_t$)' has almost
+all values not significant, so it is failing to capture the theoretical
+correlation of 0.5, This discrepancy arises for the same reason above:
+the sample ACF is calculated on a single realization where $Y$ is fixed
+(acting as a constant intercept), masking the variance contribution of
+$Y$ to the total process variance. Consistent estimation of $\rho_h$
+requires ergodicity; since this property does not hold, statistics
+derived from a single sample are not consistent estimators of the
+population parameters, we have to compute the autocorrelation on many
+realizations of the series.
+
+```{r}
+lags = c(2,13,22,38) #c.5
+t = 5
+corrs = matrix(data = NA, ncol = M, nrow = 4, dimnames = list(c('lag2','lag13','lag22','lag38')))
+
+for(i in 1:4){
+  h = lags[i]
+  corrs[i,] = cor(ts_matrix[t,], ts_matrix[t + h,])
+}
+```
+
+As shown by the correlations, all the values have quite the same value
+$0.5$, proving that we need more than one sample in order to check
+whether the time series is ergodic or not.
+
+```{r}
+#point c.8
+#first case
+set.seed(12022002)
+sigma2 = 1
+sigma_y = 3 #play around with values
+mu = 0
+mu_y = 2 #play around with values
+theta = 0.9
+T = 100
+#X_t = WN(0,sigma2)
+X_t1 = rnorm(T, mean=mu,sd=sqrt(sigma2))
+Y1 = rnorm(1,mean=mu_y,sd=sqrt(sigma_y))
+Z_t1 = X_t1 + Y1
+Z_t1 = ts(data=Z_t1)
+ts.plot(Z_t1)
+
+empirical_mean1 = mean(Z_t1)
+theoretical_mean1 = mu_y
+empirical_variance1 = var(Z_t1)
+theoretical_variance1 = sigma2 + sigma_y
+
+M = 10000
+ts_matrix1 = matrix(data=NA,nrow = T,ncol = M)
+for(i in 1:M){
+  X_t1 = rnorm(T,mean=mu,sd=1)
+  Y1 = rnorm(1,mean=mu_y,sd=sqrt(3))
+  ts_matrix1[,i]= X_t1 + Y1
+}
+mean_vector1 = apply(ts_matrix1,1,mean)
+mean(mean_vector1)
+var_vector1 = apply(ts_matrix1,1,var)
+mean(var_vector1)
+par(mfrow=c(1,2))
+plot(mean_vector1, type = 'l')
+abline(h=mu_y, col='red')
+plot(var_vector1, type = 'l')
+abline(h=4,col='red')
+par(mfrow=c(1,1))
+
+#second case
+set.seed(12022002)
+sigma2 = 1
+sigma_y2 = 4 #play around with values
+mu = 0
+mu_y2 = 3 #play around with values
+theta = 0.9
+T = 100
+#X_t = WN(0,sigma2)
+X_t2 = rnorm(T, mean=mu,sd=sqrt(sigma2))
+Y2 = rnorm(1,mean=mu_y2,sd=sqrt(sigma_y2))
+Z_t2 = X_t2 + Y2
+Z_t2 = ts(data=Z_t2)
+ts.plot(Z_t2)
+
+empirical_mean2 = mean(Z_t2)
+theoretical_mean2 = mu_y2
+empirical_variance2 = var(Z_t2)
+theoretical_variance2 = sigma2 + sigma_y2
+
+M = 10000
+ts_matrix2 = matrix(data=NA,nrow = T,ncol = M)
+for(i in 1:M){
+  X_t2 = rnorm(T,mean=mu,sd=1)
+  Y2 = rnorm(1,mean=mu_y2,sd=sqrt(4))
+  ts_matrix2[,i]= X_t2 + Y2
+}
+mean_vector2 = apply(ts_matrix2,1,mean)
+mean(mean_vector2)
+var_vector2 = apply(ts_matrix2,1,var)
+mean(var_vector2)
+par(mfrow=c(1,2))
+plot(mean_vector2, type = 'l')
+abline(h=mu_y2, col='red')
+plot(var_vector2, type = 'l')
+abline(h=5,col='red')
+par(mfrow=c(1,1))
+
+```
+
+$Z_{t1}$ and $Z_{t2}$, that are the new time series considering
+different values of the unknown parameters, evolve around the value of
+the mean of $Y$, proving the behavior that we observed at the beginning.
+
+The values of 'mean_vector1', 'var_vector1', 'mean_vector2' and
+'var_vector2' fluctuate around the imposed theoretical values ($2$ and
+$4$ for $Z_{t1}$ and $3$ and $5$ for $Z_{t2}$)
+
+### Exercise 2
+
+For the second exercise of our assignment, we decided to select the time
+series of GameStop (GME) because, beyond our shared interest in video
+games, it represents an exceptionally complex example of financial data,
+making it ideal for time series analysis. Specifically, the period of
+the 2021 "short squeeze" introduced extreme volatility and anomalies,
+which will require us to apply and evaluate robust models such as ARIMA.
+
+```{r}
+library(quantmod)
+library(forecast)
+library(TSstudio)
+library(ggplot2)
+# Specify start and end dates
+start_date = as.Date("2020-11-01")
+end_date = as.Date("2022-11-01")
+# Load GME data, using adj price to account for splits/dividends
+invisible(getSymbols("GME", src = "yahoo", from = start_date, to = end_date))
+GME = na.omit(GME$GME.Adjusted)
+
+```
+
+**Data Preparation**
+
+```{r}
+frequency(GME)
+library(PerformanceAnalytics)
+```
+
+Following the Box&Jenkins procedure here we transformed the data, to
+reduce variance, and we have also done the first order difference of the
+log-prices through the log-returns.
+
+```{r}
+log_GME = log(GME) 
+log_GME = ts(log_GME, start=c(2020,213),frequency = 252)
+frequency(log_GME)
+log_returns = CalculateReturns(GME, method = "log") #returns = first difference of log-prices
+log_returns = na.omit(log_returns)
+```
+
+*Variance inspection*
+
+```{r pressure, echo=FALSE}
+ts.plot(GME)
+ts.plot(log_GME)
+ts.plot(log_returns)
+#we will work using the log-prices due to the heteroscedasticity
+ts_surface(GME)
+hist(log_returns, breaks = 100); abline(v=mean(na.omit(log_GME)), col = 'red')
+
+```
+
+As we can see all the graphs reveals the extreme volatility event of
+January 2021. This peak corresponds to the "short squeeze" phenomenom
+driven by retail investors, coordinated via the Reddit comunities, who
+decided to challenge the hedge-funds holding short positions. The whole
+community came to an agreement on buying and holding the stock, forcing
+a massive price surge. Since professional investors reasonably had taken
+short positions, this caused significant losses: this is the so called
+short-squeeze. Following the peak and the initial enthusiasm, the prices
+graually decreased but settled at a higher level compared to the
+pre-squeeze conditions. The log-returns verify that volatility returned
+to more standard clusters after the event.
+
+```{r}
+par(mfrow=c(1,2))
+autoplot(acf(coredata(log_GME),plot=FALSE)) #no seasonality, ACF decays slowly suggesting non-stationarity
+autoplot(pacf(coredata(log_GME),plot=FALSE))## PACF seems to be going to zero after lag 1, suggesting that log_prices behaves like a random walk
+
+par(mfrow=c(1,1))
+```
+
+The ACF plot decays slowly without a clear seasonal pattern, which is a
+hallmark of non-stationary processes ($I(1)$). The PACF plot sets to 0
+after the first lag, suggesting log-GME behaves as a Random Walk
+
+```{r}
+
+library(tseries)
+jarque.bera.test(na.omit(log_returns)) #H0 = normality
+
+```
+
+```{r}
+qqnorm(log_returns, main = "QQ Plot of Log_GME ")
+qqline(log_returns, col = "red", lwd = 2)
+```
+
+Here we used the Jaque-Bera test to check for normality. The result
+leads us to reject the null hypothesis ($H_0$: Normality). The QQ-plot
+visually confirms this: the theoretical quantiles do not align with the
+sample quantiles, particularly at the tails ("fat tails"), indicating
+that extreme returns occur more frequently than a Normal distribution
+would predict.
+
+```{r}
+library(tseries)
+par(mfrow=c(1,2))
+autoplot(acf(coredata(log_returns),plot=FALSE))
+autoplot(pacf(coredata(log_returns),plot=FALSE))
+par(mfrow=c(1,1))
+```
+
+To notice that in both ACF and PACF the first lag is not significant,
+suggesting that the present return is not influenced by the previous one
+probably, that is due to the bigger peaks on lag 2,3,4. After the lag 4,
+both ACF and PACF 'calm down'
+
+```{r}
+
+adf.test(log_returns, alternative = "stationary") #log-prices are stationary, I(1)
+kpss.test(log_returns, null = "Trend") # H0: trend stationarity!
+adf.test(log_returns, alternative = "explosive")
+```
+
+working with a 1-st order difference (log returns) we get stationarity,
+motivating an ARIMA rather than ARMA
+
+## Model Selection
+
+Here we are going to try different model and we are going to choose the
+one that fits the data better
+
+```{r}
+# log_returns is already I(0) --> ARMA(p,q)
+# log_prices is I(1) --> ARIMA(p,1,q)
+arima414 = arima(log_GME, c(4,1,4))
+arima410 = arima(log_GME, c(4,1,0))
+arima014 = arima(log_GME, c(0,1,4))
+arima111 = arima(log_GME, c(1, 1, 1))
+arima210 = arima(log_GME, c(2, 1, 0))
+arima211 = arima(log_GME, c(2, 1, 1))
+arima212 = arima(log_GME, c(2, 1, 2))
+arima510=arima(log_GME,c(5,1,0))
+arima515 = arima(log_GME,c(5,1,5))
+arima512= arima(log_GME,c(5,1,2))
+arima215=arima(log_GME,c(2,1,5))
+
+AIC(arima111, arima210, arima211, arima212,arima414,arima410,arima014,arima510,arima515,arima215)
+BIC(arima111, arima210, arima211, arima212,arima414,arima410,arima014,arima510,arima515,arima215)
+```
+
+Among all these ARIMA Models we selected the three with the lowest
+AIC/BIC. For example we didn't choose ARIMA515 because even though it's
+that one with the lowest AIC, the BIC is much higher, since it penalizes
+the more complex models. Now we test the significance of the
+coefficients of the selected models.
+
+```{r}
+
+library(lmtest)
+coeftest(arima510) 
+coeftest(arima414)
+coeftest(arima410)#the first coef is not significant
+#let's try an arima410 with the ar1 coef=0
+sub_set_arima410 <- arima(log_GME, order=c(4,1,0), fixed=c(0, NA, NA, NA))
+AIC(sub_set_arima410)
+BIC(sub_set_arima410)
+```
+
+The best model among those, with the lower AIC/BIC, is the ARIMA410.
+However, the first AR coefficient was not statistically significant.
+Therefore, to address this, we utilized Gemini support to identify, if
+possible, a way for removing just the first coefficient from the model.
+This led us to discovered that the command arima itself has the argument
+"fixed=c(...)" that allows to do so. The resulting Subset-ARIMA410
+yields an improved AIC/BIC compared to the full ARIMA410.
+
+```{r}
+
+print(sub_set_arima410)
+
+```
+
+```{r}
+# Fit ARIMA (auto selection)
+fit = forecast::auto.arima(log_GME)
+print(fit)
+
+
+```
+
+The automatic suggestion gave us the standard ARIMA410. Therefore our
+final decision was to use the Sub-ARIMA410 model because the BIC/AIC are
+the lowest among all the model tried and all significant coefs. In
+addition, it is also a quite simple model, an AR(4) with just three
+parameters. It should work better with new data.
+
+## Model checking/Diagnostic
+
+```{r}
+res1 = sub_set_arima410$residuals
+```
+
+```{r}
+plot(res1)
+```
+
+NO PATTERN: residual plot (vs time) shows no clear patterns. However
+there's a sort of a rectangular band of scatter only after the
+short-squeeze.
+
+```{r}
+#UNCORELATION: ACF with most of the value within the confidence level
+acf(res1, na.action = na.pass)
+tsdisplay(res1)
+#TESTS for  SERIAL DEPENDENCE
+Box.test(res1, lag = 12, type = "Ljung-Box") # H0: no correlation
+#ZERO MEAN: residual plot, histogram, empirical mean
+```
+
+Indeed the Box-Ljung p-value is to the limit. Probably it's due to the
+first part of the series with the enormous peaks.
+
+```{r}
+hist(res1, breaks= 100)
+```
+
+The residuals are centered on the zero-mean but not normally
+distributed.
+
+```{r}
+mean(res1)
+#NORMAL DISTRIBUTION: histogram, normal Q-Q plot (standardized residuals), statistical test 
+# we test for normality and no correlation of the residuals
+jarque.bera.test(na.exclude(res1)) # H0: normality
+
+library(rugarch)
+library('nortsTest')
+arch.test(res1,arch="Lm")
+
+#conclusion the residuals are uncorrelated and with 0 mean, but they are not normally distributed and heteroscedastic (an ARCH model would be more appropriated)
+#since the residuals satisfy the essential properties we defenitely choose the sub_set_arima410
+```
+
+The residuals are uncorrelated (Ljung-Box test passes for most lags) and
+centered at zero. However, they violate the normality assumption and
+exhibit heteroscedasticity (significant ARCH test). While the
+Subset-ARIMA410 adequately captures the linear dependence (mean
+equation), the presence of ARCH effects suggests that the variance is
+not constant. We proceed with this model for the mean forecast, but we
+must account for these limitations when constructing prediction
+intervals.
+
+## Forecasting
+
+```{r}
+h = 30
+fcast = forecast(sub_set_arima410, h = h)
+fcast$mean
+
+alpha = 0.05
+fcast = forecast(sub_set_arima410, h = h, level = 1 - alpha)
+```
+
+```{r}
+plot(fcast, main = "ARIMA forecast for log_GME")
+```
+
+Using the fitted Subset-ARIMA410 model, we computed the forecast for the
+next $h=30$ days. The solid line in the plot represents our predictor
+$\hat{X}_{t+h}$: the conditional expectation of the future log-prices
+given the past history ($\hat{X}_{t+h}=E[X_{t+h} | X_t, X_{t-1}...]$).
+However log-prices are not stationary and they behave as a Random Walk
+($X_t = X_{t-1}+\epsilon_t$),hence
+$\hat{X}_{t+1}=E[X_t + \epsilon_{t+1}|F_t] = X_t$ and the same for the
+next forecasts of $\hat{X}_{t+h}$. This is because our prediction is a
+straight line at the same level of the last observation.
+
+```{r}
+h2 = 5
+fcast2 =forecast(sub_set_arima410, h = h2)
+fcast2$mean
+fcast2 = forecast(sub_set_arima410, h = h2, level = 1 - alpha)
+```
+
+```{r}
+plot(fcast2, main = " ")
+```
+
+For a smaller horizons (e.g., $h=1$ to $5$), the confidence intervals
+(prediction intervals) are narrow. As $h$ increases to 30, the
+prediction intervals widen significantly instead. Remembering that
+log_GME is a Random Walk and therefore it is not stationary
+($\gamma_h = t\sigma^2$ for $h \geq 0$), this means that the covariance
+depends on the time t. The general h-step ahead forecasting of a Random
+Walk can also be written as:
+$$X_{t+h} = X_t + \sum_{i=1}^{h} \epsilon_{t+i}$$ The general forecast
+is:
+$$\hat{X}_{t+h}=E[X_{t+h} | X_t, X_{t-1}...]=\hat{X}_{t+h} = E[X_t + \sum \epsilon_{t+i}] = X_t + \sum E[\epsilon_{t+i}]=X_t$$
+As written before. The prediction error is
+$$e_{t+h} = X_{t+h} - \hat{X}_{t+h} = (X_t + \sum_{i=1}^{h} \epsilon_{t+i}) - X_t = \sum_{i=1}^{h} \epsilon_{t+i}$$
+
+Namely, the prediction error is exactly the sum of the future shocks The
+variance of the error is:
+
+$$Var(e_{t+h}) = Var( \sum_{i=1}^{h} \epsilon_{t+i})=Var(\epsilon_{t+1} + \epsilon_{t+2} + ... + \epsilon_{t+h})$$
+Since the $\epsilon$ are independent:
+
+$$Var(\epsilon_{t+h})=Var(\epsilon_{t+1}) + Var(\epsilon_{t+2}) + ... + Var(\epsilon_{t+h})$$
+Given the assumption of homoscedasticity ($\epsilon$ is a White Noise):
+$$Var(\epsilon_{t+h})=\sigma^2 + \sigma^2 + \dots + \sigma^2=h\sigma^2$$
+The variance of the forecast error increases linearly with $h$, this
+explain why as h increases the "uncertainty cone" widens.
+
+The prediction intervals generated by the forecast() function in R
+assumes that the residuals are uncorrelated and normally distributed.
+The calculation follows the formula:\
+$$\hat{y}_{t+h} \pm z_{\alpha/2} \cdot \hat{\sigma}_h$$
+
+The first benefit of using confidence intervals is the quantification of
+uncertainty: they provide a probabilistic range that allows for better
+decision-making and risk assessment.
+
+The main harm here lies in the potential violation of the normality
+assumption (the Jarque-Bera test gave $p < 0.05$ as result for the
+residuals). Since they are not normally distributed the risk can be
+underestimated. They exhibit heavy tails. Consequently, the standard
+Gaussian intervals produced by R are likely too narrow, underestimating
+the probability of extreme price movements (black swan events). The
+other principal problem is the homoscedasticity assumed by standard
+ARIMA intervals. Since our ARCH test was significant, the model fails to
+adapt the interval width to periods of high volatility clustering.
+
+## Residual Bootstrap
+
+```{r}
+set.seed(12022002)
+fc_boot = forecast(sub_set_arima410, h=h, bootstrap = TRUE, npaths = 5000, level = 1-alpha)
+fc_boot$mean
+```
+
+```{r}
+plot(fc_boot)
+lines(fcast$lower, col='red')
+lines(fcast$upper, col='red')
+#the bootstrap interval is wider than the normal one
+#this means that residuals has fatter tails
+#they are also skewed: the upper bound is greater than the lower one.
+```
+
+Comparing the intervals, we observe that the Bootstrap intervals are
+likely wider and asymmetric compared to the Gaussian ones. This confirms
+that the Normal assumption underestimates the risk. Specifically, since
+GME has 'fat tails' (high kurtosis), the bootstrap procedure, by
+sampling real extreme residuals from the past, projects a larger
+potential downside/upside than the strict normal curve would allow.
+
+A key issue with the simple residual bootstrap is that it assumes
+residuals are i.i.d. (identically distributed). However, our previous
+diagnostic tests revealed ARCH effects (heteroscedasticity). This means
+the volatility is not constant: some periods are structurally more
+volatile than others. By randomly sampling a residual from a 'calm'
+period and plugging it into a forecast, or vice-versa, we ignore the
+volatility clustering. We are treating all residuals as exchangeable,
+which destroys the information regarding the current state of
+volatility. A more advanced method (like a GARCH bootstrap or Block
+Bootstrap) would be required to preserve the volatility structure.
+
+## Moving Block Bootstrap
+
+```{r}
+library(boot)
+#the statistic is the mean daily return 
+statistic_function = function(ts_data, index){
+  return(mean(ts_data[index]))
+}
+#l=block length (20 is aproximately the number of trading days per month)
+#R=replication number
+#sim="fixed" block length
+mbb=tsboot(log_returns, mean, R=999, l=20, sim = "fixed")
+replStats = as.vector(mbb$t)
+print(summary(replStats))
+print(boot.ci(mbb,type = c("norm","basic","perc")))
+```
+
+```{r}
+plot(mbb)
+```
+
+Standard bootstrapping destroys the serial dependence structure of the
+data. For financial time series like GME, where volatility clustering is
+present (as shown by our earlier ARCH test), high-volatility days tend
+to follow other high-volatility days. The Moving Block Bootstrap (MBB)
+addresses this by resampling consecutive blocks of length $l$ (e.g.,
+$l=20$). This preserves the local dependency structure (autocorrelation
+and ARCH effects) within each block, ensuring that the simulated series
+mimics the 'memory' of the real market. To notice that here we used the
+log-returns since the log-prices are non-stationary ($I(1)$).
+Bootstrapping the log-prices directly would not yield valid statistics
+for the drift. Log-returns are stationary ($I(0)$), satisfying the
+stability requirement for bootstrap. The resulting 95% confidence
+interval is include zero [-0.0045, 0.0141]. This indicates that the mean
+daily return is not statistically distinguishable from zero. This
+finding supports the Efficient Market Hypothesis and the Random Walk
+nature of the stock: while the volatility is high, there is no
+statistically significant deterministic trend (upward or downward) that
+can be exploited simply by looking at past mean returns.
+
+## Bootstrap Aggregating
+
+Bagging (Bootstrap Aggregating) improves forecast accuracy using the
+BLD-MBB algorithm (Bergmeir et al., 2016). We generated $B=1000$
+bootstrapped versions of the original GME series. For each version, we
+fitted an ETS model and produced a forecast. The final 'Bagged Forecast'
+is the average of these 1000 individual forecasts.
+
+```{r}
+n_sims = 1000
+sims = bld.mbb.bootstrap(log_GME, n_sims)
+h = 30
+future_log = matrix(0,nrow = n_sims,ncol = h)
+for(i in seq(n_sims)){
+  future_log[i,] = simulate(ets(sims[[i]], model = "ZZN"), nsim=h)
+}
+
+start = tsp(log_GME)[2]+1/252
+simfc = structure(list(
+  mean = ts(colMeans(future_log), start = start, frequency = 252),
+  lower = ts(apply(future_log, 2, quantile, prob=0.025),
+             start = start, frequency = 252),
+  upper = ts(apply(future_log, 2, quantile, prob=0.975),
+             start = start, frequency = 252), level=95),
+  class="forecast")
+
+etsfc = forecast(ets(log_GME), h=h,level=95)
+```
+
+```{r}
+autoplot(log_GME)+
+  ggtitle("Daily log_GME") +
+  xlab("Year") + ylab("Log Price") +
+  autolayer(simfc, series="Simulated") +
+  autolayer(etsfc, series="ETS")
+```
+
+Comparing the Bagged forecast with the standard single-model forecast,
+the Bagged interval is significantly wider than the ETS one. This
+happens because the Bagging procedure resamples the actual historical
+residuals of GME, which include the extreme volatility observed during
+the 'short squeeze' periods of 2021. Since this was a extraordinary
+case, two are the possible views:
+
+-   The standard ETS model appears to underestimate the potential tail
+    risk, producing a overly confident (narrow) interval based mostly on
+    recent trends. Given the extraordinary nature of the Black Swan, it
+    might be considered more realistic.
+
+-   However the Bagged forecast can provide a sort of stress test which
+    takes count of more unpredictable scenarios. While the probability
+    of a repeat squeeze is low, the Bagging interval correctly signals
+    that the potential risk remains far higher than what a standard
+    Gaussian model (ETS) implies.
+
+Ideally, an investor should view the ETS interval as the probable range
+and the Bagging interval as the possible risk landscape in a
+worst/best-case scenario.
